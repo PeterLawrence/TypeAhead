@@ -1,7 +1,6 @@
 package com.alvinalexander.typeahead;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.StringTokenizer;
@@ -17,9 +16,9 @@ import java.util.TreeSet;
  */
 public class DocumentLookAhead implements LookAheadTextPane.TextLookAhead {
 
-	private TreeSet setOfWords = new TreeSet();
+	private TreeSet<String> setOfWords = new TreeSet<String>();
 	private String text;
-	private List dictionaryWords;
+	private List<String> dictionaryWords;
 
 	public DocumentLookAhead() {
 		try {
@@ -37,7 +36,7 @@ public class DocumentLookAhead implements LookAheadTextPane.TextLookAhead {
 		if (key == null) return null;
 		if (key.trim().equals("")) return null;
 
-		Iterator it = setOfWords.iterator();
+		Iterator<String> it = setOfWords.iterator();
 		while (it.hasNext()) {
 			String s = (String) it.next();
 			if (s.startsWith(key) == true) {
@@ -46,7 +45,7 @@ public class DocumentLookAhead implements LookAheadTextPane.TextLookAhead {
 		}
 
 		// no match locally? try the dictionary.
-		Iterator dictionaryIterator = dictionaryWords.iterator();
+		Iterator<String> dictionaryIterator = dictionaryWords.iterator();
 		while (dictionaryIterator.hasNext()) {
 			String s = (String) dictionaryIterator.next();
 			if (s.startsWith(key) == true) {
@@ -63,7 +62,7 @@ public class DocumentLookAhead implements LookAheadTextPane.TextLookAhead {
 	}
 
 	public void setText(final String document) {
-		setOfWords = new TreeSet();
+		setOfWords = new TreeSet<String>();
 		this.text = document;
 		text = text.replaceAll("\\s", " ");
 		text = text.replaceAll("\\.", " ");

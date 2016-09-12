@@ -7,11 +7,11 @@ import java.io.*;
 
 public class FileUtilities
 {
-  public static List getFileAsListOfStrings(String filename)
+  public static List<String> getFileAsListOfStrings(String filename)
   throws IOException
   {
     if (filename==null) return null;
-    List listOfStrings = new LinkedList();
+    List<String> listOfStrings = new LinkedList<String>();
 
     BufferedReader br = null;
     try
@@ -156,8 +156,8 @@ public class FileUtilities
   {
     try
     {
-      List strings = getFileAsListOfStrings("C:\\1_Al\\CVSProjects\\DevDaily\\ddbookmarks\\data\\categories.db");
-      Iterator it = strings.iterator();
+      List<String> strings = getFileAsListOfStrings("C:\\1_Al\\CVSProjects\\DevDaily\\ddbookmarks\\data\\categories.db");
+      Iterator<String> it = strings.iterator();
       while (it.hasNext())
       {
         String s = (String)it.next();

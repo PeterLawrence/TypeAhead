@@ -22,6 +22,7 @@ import javax.swing.event.DocumentEvent;
  */
 public class LookAheadTextPane extends JTextPane {
 	
+	private static final long serialVersionUID = 1L;
 	int endOfCurrentSuggestion = 0;
 
 	public LookAheadTextPane() {
@@ -66,11 +67,6 @@ public class LookAheadTextPane extends JTextPane {
 		setLookAhead(lookAhead);
 		this.setPreferredSize(new Dimension(754, 890));
 		this.getDocument().addDocumentListener(new DocumentListener() {
-			public void actionPerformed(ActionEvent e) {
-				// remove any existing selection
-				setCaretPosition(getDocument().getLength());
-			}
-
 			public void changedUpdate(DocumentEvent e) {}
 			public void insertUpdate(DocumentEvent e) {}
 			public void removeUpdate(DocumentEvent e) {}
@@ -132,9 +128,6 @@ public class LookAheadTextPane extends JTextPane {
 				int lastBlank = recentDocText.lastIndexOf(" ");
 				int lastTab = recentDocText.lastIndexOf("\t");
 				int lastNewline = recentDocText.lastIndexOf("\n");
-				int lastFF = recentDocText.lastIndexOf("\f");
-				int lastR = recentDocText.lastIndexOf("\r");
-
 				int lastWhitespaceLoc = 0;
 				String lastWhitespaceString = "";
 				if (lastBlank > lastTab && lastBlank > lastNewline) {
