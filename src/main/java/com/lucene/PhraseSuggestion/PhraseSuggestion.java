@@ -2,14 +2,18 @@
  * @author Peter Lawrence
  * 
  * Test code for generating sentence suggestions
- * Used lucene 6
+ * Using lucene 6 (http://lucene.apache.org/core/6_2_0/)
  * 
  */
 
 package com.lucene.PhraseSuggestion;
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.CharBuffer;
+import java.text.BreakIterator;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
@@ -30,22 +34,86 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.RAMDirectory;
 
 public class PhraseSuggestion {
-	public static final String REC_FIELD_NAME = "recommendation";
+	private static final String REC_FIELD_NAME = "recommendation";
 	
-	// === Lucene Suggester ===
-	public static void indexDictionaryPhrases(Directory dir, Directory spellDir,String ... phrases) throws IOException {
+	static RAMDirectory phrasesDir = new RAMDirectory(); // Source Directory
+	static RAMDirectory spellDir = new RAMDirectory(); // index Directory
+	
+	public static boolean buildSentenceDatabase(String aFileName) throws IOException
+	{
+		boolean Success=false;
 		IndexWriterConfig iwc = new IndexWriterConfig(new StandardAnalyzer());
-		IndexWriter writer = new IndexWriter(dir, iwc);
-
+		IndexWriter writer = new IndexWriter(phrasesDir, iwc);
+		BufferedReader textBuffer=null;
+		FileReader textFile=null;
+		try {
+			textFile = new FileReader(aFileName);
+			textBuffer = new BufferedReader(textFile);
+			
+			String aLineOfText;
+			while ((aLineOfText = textBuffer.readLine())!=null)
+			{
+		        BreakIterator boundary = BreakIterator.getSentenceInstance(Locale.UK);
+		        boundary.setText(aLineOfText);
+		        int start = boundary.first();
+		        for (int end = boundary.next();end != BreakIterator.DONE; start = end, end = boundary.next())
+		        {
+		        	System.out.println(aLineOfText.substring(start,end));
+		        	addRecommendation(aLineOfText.substring(start,end), writer);
+		        }
+			}
+			Success=true;
+		}
+		catch (IOException e)
+		{
+			Success=false;
+		}
+		finally
+		{
+			if (textBuffer!=null) {
+				textBuffer.close();
+			}
+			if (textFile!=null) {
+				textFile.close();
+			}
+			writer.close();
+		}
+		return (Success);
+	}
+	
+	public static boolean buildSentenceDatabase(String ... phrases) throws IOException
+	{
+		IndexWriterConfig iwc = new IndexWriterConfig(new StandardAnalyzer());
+		IndexWriter writer = new IndexWriter(phrasesDir, iwc);
 		for (int i = 0; i < phrases.length; i++) {
 			addRecommendation(phrases[i], writer);
 		}
-
 		writer.close();
-
+		return (true);
+	}
+	
+	// === Lucene Dictionary Suggester ===
+    static SpellChecker m_phraseRecommender=null;
+	
+	public static boolean buildDictionaryPhrases() throws IOException
+	{
+		if (m_phraseRecommender!=null) {
+			m_phraseRecommender=null;
+		}
+		indexDictionaryPhrases(phrasesDir, spellDir);
+		m_phraseRecommender = new SpellChecker(spellDir);
+		if (m_phraseRecommender==null) {
+			return (false);
+		}
+		m_phraseRecommender.setAccuracy(0.3f);
+		return (true);
+	}
+	
+	private static void indexDictionaryPhrases(Directory SourceDir, Directory spellDir) throws IOException
+	{		
 		SpellChecker phraseRecommender = new SpellChecker(spellDir);
 
-		IndexReader reader = DirectoryReader.open(dir);
+		IndexReader reader = DirectoryReader.open(SourceDir);
 		
 		LuceneDictionary aLuceneDictionary= new LuceneDictionary(reader,REC_FIELD_NAME);
 		
@@ -56,16 +124,26 @@ public class PhraseSuggestion {
 		reader.close();
 	}
 	
-	public static String getSuggestion(String query, SpellChecker phraseRecommender) throws IOException {
-		String[] suggestions = phraseRecommender.suggestSimilar(query, 5);
+	public static String getSuggestion(String query) throws IOException
+	{
+		if (m_phraseRecommender==null)
+		{
+			return null;
+		}
+		String[] suggestions = m_phraseRecommender.suggestSimilar(query, 5);
 		if (suggestions.length > 0) 
 			return suggestions[0];
 		else 
 			return null;
 	}
 	
-	public static String[] getSuggestions(String query, int MaxSuggestion,SpellChecker phraseRecommender) throws IOException {
-		String[] suggestions = phraseRecommender.suggestSimilar(query, MaxSuggestion);
+	public static String[] getSuggestions(String query, int MaxSuggestion) throws IOException
+	{
+		if (m_phraseRecommender==null)
+		{
+			return null;
+		}
+		String[] suggestions = m_phraseRecommender.suggestSimilar(query, MaxSuggestion);
 		if (suggestions.length > 0) 
 			return suggestions;
 		else 
@@ -73,14 +151,22 @@ public class PhraseSuggestion {
 	}
 	
 	// === Fuzzy Suggester ===
-	public static FuzzySuggester indexFuzzyPhrases(Directory SourceDir, Directory spellDir,String ... phrases) throws IOException {
-		IndexWriterConfig iwc = new IndexWriterConfig(new StandardAnalyzer());
-		IndexWriter writer = new IndexWriter(SourceDir, iwc);
-		for (int i = 0; i < phrases.length; i++) {
-			addRecommendation(phrases[i], writer);
+	private static FuzzySuggester m_aFizzySuggestor=null; 
+	
+	public static boolean buildFizzyPhrases() throws IOException
+	{
+		if (m_aFizzySuggestor!=null) {
+			m_aFizzySuggestor=null;
 		}
-		writer.close();
-
+		m_aFizzySuggestor = indexFuzzyPhrases(phrasesDir, spellDir);
+		if (m_aFizzySuggestor==null) {
+			return (false);
+		}
+		return (true);
+	}
+	
+	private static FuzzySuggester indexFuzzyPhrases(Directory SourceDir, Directory spellDir) throws IOException 
+	{
 		StandardAnalyzer autosuggestAnalyzer = new StandardAnalyzer();
 		FuzzySuggester suggestor = new FuzzySuggester(spellDir,"tmp",autosuggestAnalyzer);
 
@@ -94,9 +180,13 @@ public class PhraseSuggestion {
 		return (suggestor);
 	}
 	
-	private static String[] getFuzzySuggestions(FuzzySuggester aSuggestor, String query, int num) throws IOException
+	public static String[] getFuzzySuggestions(String query, int num) throws IOException
 	{
-		List<LookupResult> suggestionsList = aSuggestor.lookup(CharBuffer.wrap(query),false,num);
+		if (m_aFizzySuggestor==null)
+		{
+			return null;
+		}
+		List<LookupResult> suggestionsList = m_aFizzySuggestor.lookup(CharBuffer.wrap(query),false,num);
 		if (suggestionsList!=null)
 		{
 			if (suggestionsList.size()>0)
@@ -115,15 +205,23 @@ public class PhraseSuggestion {
 		return (null);
 	}
 
-	// === Fuzzy Suggester ===
-	public static AnalyzingInfixSuggester indexAnalyzingInfixSuggesterPhrases(Directory SourceDir, Directory spellDir,String ... phrases) throws IOException {
-		IndexWriterConfig iwc = new IndexWriterConfig(new StandardAnalyzer());
-		IndexWriter writer = new IndexWriter(SourceDir, iwc);
-		for (int i = 0; i < phrases.length; i++) {
-			addRecommendation(phrases[i], writer);
+	// === AnalyzingInfix  Suggester ===
+	private static AnalyzingInfixSuggester m_AnalyzingInfixSuggester = null;
+	
+	public static boolean buildAnalyzingInfixPhrases() throws IOException
+	{
+		if (m_AnalyzingInfixSuggester!=null) {
+			m_AnalyzingInfixSuggester=null;
 		}
-		writer.close();
-
+		m_AnalyzingInfixSuggester = indexAnalyzingInfixSuggesterPhrases(phrasesDir, spellDir);
+		if (m_AnalyzingInfixSuggester==null) {
+			return (false);
+		}
+		return (true);
+	}
+	
+	private static AnalyzingInfixSuggester indexAnalyzingInfixSuggesterPhrases(Directory SourceDir, Directory spellDir) throws IOException 
+	{
 		StandardAnalyzer autosuggestAnalyzer = new StandardAnalyzer();
 		AnalyzingInfixSuggester suggestor = new AnalyzingInfixSuggester(spellDir,autosuggestAnalyzer);
 
@@ -137,9 +235,13 @@ public class PhraseSuggestion {
 		return (suggestor);
 	}
 	
-	private static String[] getAnalyzingInfixSuggestions(AnalyzingInfixSuggester aSuggestor, String query, int num) throws IOException
+	public static String[] getAnalyzingInfixSuggestions(String query, int num) throws IOException
 	{
-		List<LookupResult> suggestionsList = aSuggestor.lookup(CharBuffer.wrap(query),false,num);
+		if (m_AnalyzingInfixSuggester==null)
+		{
+			return null;
+		}
+		List<LookupResult> suggestionsList = m_AnalyzingInfixSuggester.lookup(CharBuffer.wrap(query),false,num);
 		if (suggestionsList!=null)
 		{
 			if (suggestionsList.size()>0)
@@ -171,7 +273,7 @@ public class PhraseSuggestion {
 		writer.addDocument(doc);
 	}
 	
-	public static void OutputSuggestions(String ... SuggestionList) {
+	public static void outputSuggestions(String ... SuggestionList) {
 		if (SuggestionList!=null && SuggestionList.length>0) {
 			if (SuggestionList.length==1) {
 				System.out.println("Found 1 Suggestion");
@@ -190,8 +292,6 @@ public class PhraseSuggestion {
 	
 	// === Test Function ===
 	public static void main(String[] args) throws IOException {
-		RAMDirectory phrasesDir = new RAMDirectory();
-		RAMDirectory spellDir = new RAMDirectory();
 		
 		String TestData[] = { "What have the Romans ever done for us?",
 				"This parrot is no more.",
@@ -204,29 +304,31 @@ public class PhraseSuggestion {
 				"Strange ladies lying in pools distributing swords is no basis for government",
 				"Nobody expects the Spanish Inquisition" };
 		
-		System.out.println("==== Lucene Dictionary Suggestor ====");
-		indexDictionaryPhrases(phrasesDir, spellDir,TestData);
-		SpellChecker phraseRecommender = new SpellChecker(spellDir);
-		phraseRecommender.setAccuracy(0.3f);
+		buildSentenceDatabase(TestData);
 		
-		OutputSuggestions(getSuggestions("spam spam",5,phraseRecommender));
-		OutputSuggestions(getSuggestions("A tiger",5,phraseRecommender));
-		OutputSuggestions(getSuggestions("Romans  ever done for us",5,phraseRecommender));
+		//buildSentenceDatabase("E:\\Thirdparty\\TypeAheadProject\\TypeAhead\\docs\\Sentences.txt");
+		
+		System.out.println("==== Lucene Dictionary Suggestor ====");
+		buildDictionaryPhrases();
+		
+		outputSuggestions(getSuggestions("spam spam",5));
+		outputSuggestions(getSuggestions("A tiger",5));
+		outputSuggestions(getSuggestions("Romans  ever done for us",5));
 	
 		System.out.println("==== Fuzzy Suggestor ===");
-		FuzzySuggester aSuggestor = indexFuzzyPhrases(phrasesDir, spellDir,TestData);
-		
-		OutputSuggestions(getFuzzySuggestions(aSuggestor, "spam",5));
-		OutputSuggestions(getFuzzySuggestions(aSuggestor, "lovely",5));
-		OutputSuggestions(getFuzzySuggestions(aSuggestor, "a tger",5));
-		OutputSuggestions(getFuzzySuggestions(aSuggestor, "tiger",5));
+		buildFizzyPhrases();
+				
+		outputSuggestions(getFuzzySuggestions("spam",5));
+		outputSuggestions(getFuzzySuggestions("lovely",5));
+		outputSuggestions(getFuzzySuggestions("a tger",5));
+		outputSuggestions(getFuzzySuggestions("tiger",5));
 		
 		System.out.println("==== AnalyzingInfix Suggestor ===");
-		AnalyzingInfixSuggester anInfixSuggestor = indexAnalyzingInfixSuggesterPhrases(phrasesDir, spellDir,TestData);
+		buildAnalyzingInfixPhrases();
 		
-		OutputSuggestions(getAnalyzingInfixSuggestions(anInfixSuggestor, "spam",5));
-		OutputSuggestions(getAnalyzingInfixSuggestions(anInfixSuggestor, "lovely",5));
-		OutputSuggestions(getAnalyzingInfixSuggestions(anInfixSuggestor, "a tger",5));
-		OutputSuggestions(getFuzzySuggestions(aSuggestor, "a tiger",5));
+		outputSuggestions(getAnalyzingInfixSuggestions("spam",5));
+		outputSuggestions(getAnalyzingInfixSuggestions("lovely",5));
+		outputSuggestions(getAnalyzingInfixSuggestions("a tger",5));
+		outputSuggestions(getAnalyzingInfixSuggestions("a tiger",5));
 	}
 } 
