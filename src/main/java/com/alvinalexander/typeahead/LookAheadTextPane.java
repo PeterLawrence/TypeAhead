@@ -8,7 +8,8 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Insets;
 import java.awt.event.*;
-
+import java.text.BreakIterator;
+import java.util.Locale;
 
 import javax.swing.event.DocumentListener;
 import javax.swing.event.DocumentEvent;
@@ -119,7 +120,8 @@ public class LookAheadTextPane extends JTextPane {
 				// this may be a bad approach; need to look for whitespace at
 				// beginning and
 				// end of words, periods, etc.
-				if (doc.getLength() > charsToLookBack) {
+				int textLength=doc.getLength();
+				if (textLength > charsToLookBack) {
 					lookAhead.setText(doc.getText(0, doc.getLength() - charsToLookBack));
 				}
 
@@ -145,11 +147,44 @@ public class LookAheadTextPane extends JTextPane {
 				}
 				else if (lastFullStop>-1){ 
 					lastWhitespaceLoc = lastFullStop;
-					lastWhitespaceString = "\n";
+					lastWhitespaceString = ".";
 				}
+				int LastSentenceBreak=Math.max(lastTab,lastNewline);
+				LastSentenceBreak=Math.max(LastSentenceBreak,lastFullStop);
 				
-				// find last sentence
 				String newContent = null;
+				// find last sentence
+				String LastSentence=null;
+		        BreakIterator boundary = BreakIterator.getSentenceInstance(Locale.UK);
+		        boundary.setText(recentDocText);
+		        int start = boundary.first();
+		        int wordStart=0;
+		        int end=0;
+		        for (end = boundary.next();end != BreakIterator.DONE; start = end, end = boundary.next())
+		        {
+		        	//System.out.println(aLineOfText.substring(start,end));
+		        	LastSentence=recentDocText.substring(start,end);
+		        	wordStart=start;
+		        }
+		        if (LastSentence!=null && LastSentence.length()>3 && wordStart>LastSentenceBreak)
+		        {
+		        	// recentDocText is up to current cursor position
+		        	newContent = lookAhead.doLookAheadSentence(LastSentence);
+		        	if (newContent!=null) {
+		        		int removedTxt = recentDocText.length() - wordStart;
+		        		if (removedTxt>0 && removedTxt<newContent.length()) {
+			        		doc.remove(wordStart, removedTxt);
+			        		doc.insertString(wordStart, newContent, null);
+	
+			        		int lengthOfAddedContent = newContent.length() - removedTxt;
+							// highlight the added text
+							endOfCurrentSuggestion = caretPosition + lengthOfAddedContent;
+							setCaretPosition(caretPosition + lengthOfAddedContent);
+							moveCaretPosition(caretPosition);
+							return;
+		        		}
+		        	}
+		        }
 				
 				if (lastWhitespaceLoc > 0 && doc.getLength() > (charsToLookBack - 1)) {
 					// get caret position
@@ -164,18 +199,14 @@ public class LookAheadTextPane extends JTextPane {
 					if (lastWhitespacePosition <= 0) return;
 					String charsSinceLastBlank = recentChars.substring(lastWhitespacePosition + 1, charsToLookBack);
 
-					if (charsSinceLastBlank.length()>3) {
-						newContent = lookAhead.doLookAheadSentence(charsSinceLastBlank);
-					}
-					else {
-						newContent = lookAhead.doLookAhead(charsSinceLastBlank);
-					}
+					newContent = lookAhead.doLookAhead(charsSinceLastBlank);
+					
 					if (newContent != null) {
 						int lengthOfAddedContent = newContent.length() - charsSinceLastBlank.length();
 						String newContentSubstring = newContent.substring(
 								charsSinceLastBlank.length(),
 								newContent.length());
-						doc.insertString(getCaretPosition(), newContentSubstring, null);
+						doc.insertString(caretPosition, newContentSubstring, null);
 
 						// highlight the added text
 						endOfCurrentSuggestion = caretPosition + lengthOfAddedContent;
@@ -184,16 +215,11 @@ public class LookAheadTextPane extends JTextPane {
 					}
 				} else {
 					oldContent = recentDocText;
-					if (oldContent.length()>3) {
-						newContent = lookAhead.doLookAheadSentence(oldContent);
-					}
-					else {
-						newContent = lookAhead.doLookAhead(oldContent);
-					}
+					newContent = lookAhead.doLookAhead(oldContent);
 					if (newContent != null) {
 						int lengthOld = oldContent.length();
 						String newContentSubstring = newContent.substring(lengthOld);
-						doc.insertString(getCaretPosition(), newContentSubstring, null);
+						doc.insertString(caretPosition, newContentSubstring, null);
 
 						// highlight the added text
 						setCaretPosition(newContent.length());
