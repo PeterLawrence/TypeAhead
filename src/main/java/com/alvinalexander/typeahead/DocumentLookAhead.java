@@ -4,8 +4,11 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.StringTokenizer;
-
 import java.util.TreeSet;
+
+import javax.print.DocFlavor.URL;
+
+import com.lucene.PhraseSuggestion.PhraseSuggestion;
 
 /**
  * @author Alvin Alexander, AlvinAlexander.com
@@ -19,13 +22,24 @@ public class DocumentLookAhead implements LookAheadTextPane.TextLookAhead {
 	private TreeSet<String> setOfWords = new TreeSet<String>();
 	private String text;
 	private List<String> dictionaryWords;
+	private PhraseSuggestion dictionarySentenaces = new  PhraseSuggestion();
+	
+	boolean UseSentenceSuggestor=false;
 
 	public DocumentLookAhead() {
 		try {
 			// TODO a kludge so i can edit the dictionary as desired
-			String homeDir = System.getProperty("user.home");
-			dictionaryWords = FileUtilities.getFileAsListOfStrings(homeDir + "/TypeAheadDictionary.txt");
-			//dictionaryWords = FileUtilities.getFileAsListOfStrings("dict/english.0");
+			//String homeDir = System.getProperty("user.home");
+			//dictionaryWords = FileUtilities.getFileAsListOfStrings(homeDir + "/TypeAheadDictionary.txt");
+			//PhraseSuggestion.buildSentenceDatabase(homeDir + "/TypeAheadSentances.txt");
+			
+			//Get file from resources folder
+			dictionaryWords = FileUtilities.getFileAsListOfStrings("dict/TypeAheadDictionary.txt");
+
+			if (dictionarySentenaces.buildSentenceDatabase("dict/TypeAheadSentences.txt")) 
+			{
+				dictionarySentenaces.buildFizzyPhrases();
+			}
 		} catch (IOException ioe) {
 			System.err.println("IOException occurred trying to read dictionary.");
 			System.err.println(ioe.getMessage());
@@ -57,6 +71,23 @@ public class DocumentLookAhead implements LookAheadTextPane.TextLookAhead {
 		return null;
 	}
 
+	public String doLookAheadSentence(String sentenceKey) {
+		if (sentenceKey == null) return null;
+		if (sentenceKey.trim().equals("")) return null;
+
+		try {
+			String[] Suggestions = dictionarySentenaces.getFuzzySuggestions(sentenceKey,1);
+			if (Suggestions!=null && Suggestions.length>0) {
+				return (Suggestions[0]);
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+		}
+
+		// No match found - return null
+		return null;
+	}
+	
 	public String getText() {
 		return text;
 	}

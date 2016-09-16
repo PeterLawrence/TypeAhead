@@ -8,6 +8,8 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Insets;
 import java.awt.event.*;
+
+
 import javax.swing.event.DocumentListener;
 import javax.swing.event.DocumentEvent;
 
@@ -109,8 +111,8 @@ public class LookAheadTextPane extends JTextPane {
 					charsToLookBack = docLength - 1;
 				String recentDocText = null;
 				String oldContent = null;
-
-				recentDocText = doc.getText(0, getCaretPosition());
+				int caretPosition = getCaretPosition();
+				recentDocText = doc.getText(0, caretPosition);
 
 				// pass the look-ahead algorithm all of the doc except the
 				// partial word you're currently working on
@@ -125,26 +127,32 @@ public class LookAheadTextPane extends JTextPane {
 				// for that
 				// same character throughout the rest of the code
 				// REFACTOR THIS SECTION
+				int lastFullStop = recentDocText.lastIndexOf(".");
 				int lastBlank = recentDocText.lastIndexOf(" ");
 				int lastTab = recentDocText.lastIndexOf("\t");
 				int lastNewline = recentDocText.lastIndexOf("\n");
 				int lastWhitespaceLoc = 0;
 				String lastWhitespaceString = "";
-				if (lastBlank > lastTab && lastBlank > lastNewline) {
+				if (lastBlank > lastTab && lastBlank > lastNewline && lastBlank > lastFullStop) {
 					lastWhitespaceLoc = lastBlank;
 					lastWhitespaceString = " ";
-				} else if (lastTab > lastBlank && lastTab > lastNewline) {
+				} else if (lastTab > lastNewline && lastTab > lastFullStop) {
 					lastWhitespaceLoc = lastTab;
 					lastWhitespaceString = "\t";
-				} else if (lastNewline > lastBlank && lastNewline > lastTab) {
+				} else if (lastNewline > lastFullStop) {
 					lastWhitespaceLoc = lastNewline;
 					lastWhitespaceString = "\n";
 				}
-
-				if (lastWhitespaceLoc > 0
-						&& doc.getLength() > (charsToLookBack - 1)) {
+				else if (lastFullStop>-1){ 
+					lastWhitespaceLoc = lastFullStop;
+					lastWhitespaceString = "\n";
+				}
+				
+				// find last sentence
+				String newContent = null;
+				
+				if (lastWhitespaceLoc > 0 && doc.getLength() > (charsToLookBack - 1)) {
 					// get caret position
-					int caretPosition = getCaretPosition();
 					// look at last 10 characters
 					int scanBackPosition = caretPosition - charsToLookBack;
 					if (scanBackPosition <= 0) return;
@@ -156,7 +164,12 @@ public class LookAheadTextPane extends JTextPane {
 					if (lastWhitespacePosition <= 0) return;
 					String charsSinceLastBlank = recentChars.substring(lastWhitespacePosition + 1, charsToLookBack);
 
-					String newContent = lookAhead.doLookAhead(charsSinceLastBlank);
+					if (charsSinceLastBlank.length()>3) {
+						newContent = lookAhead.doLookAheadSentence(charsSinceLastBlank);
+					}
+					else {
+						newContent = lookAhead.doLookAhead(charsSinceLastBlank);
+					}
 					if (newContent != null) {
 						int lengthOfAddedContent = newContent.length() - charsSinceLastBlank.length();
 						String newContentSubstring = newContent.substring(
@@ -171,7 +184,12 @@ public class LookAheadTextPane extends JTextPane {
 					}
 				} else {
 					oldContent = recentDocText;
-					String newContent = lookAhead.doLookAhead(oldContent);
+					if (oldContent.length()>3) {
+						newContent = lookAhead.doLookAheadSentence(oldContent);
+					}
+					else {
+						newContent = lookAhead.doLookAhead(oldContent);
+					}
 					if (newContent != null) {
 						int lengthOld = oldContent.length();
 						String newContentSubstring = newContent.substring(lengthOld);
@@ -194,6 +212,7 @@ public class LookAheadTextPane extends JTextPane {
 	// TODO move this out of here
 	public interface TextLookAhead {
 		public String doLookAhead(String key);
+		public String doLookAheadSentence(String sentenceKey);
 		public void setText(String text);
 		public void addWord(String word);
 	}

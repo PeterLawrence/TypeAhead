@@ -36,10 +36,10 @@ import org.apache.lucene.store.RAMDirectory;
 public class PhraseSuggestion {
 	private static final String REC_FIELD_NAME = "recommendation";
 	
-	static RAMDirectory phrasesDir = new RAMDirectory(); // Source Directory
-	static RAMDirectory spellDir = new RAMDirectory(); // index Directory
+	RAMDirectory phrasesDir = new RAMDirectory(); // Source Directory
+	RAMDirectory spellDir = new RAMDirectory(); // index Directory
 	
-	public static boolean buildSentenceDatabase(String aFileName) throws IOException
+	public boolean buildSentenceDatabase(String aFileName) throws IOException
 	{
 		boolean Success=false;
 		IndexWriterConfig iwc = new IndexWriterConfig(new StandardAnalyzer());
@@ -58,7 +58,7 @@ public class PhraseSuggestion {
 		        int start = boundary.first();
 		        for (int end = boundary.next();end != BreakIterator.DONE; start = end, end = boundary.next())
 		        {
-		        	System.out.println(aLineOfText.substring(start,end));
+		        	//System.out.println(aLineOfText.substring(start,end));
 		        	addRecommendation(aLineOfText.substring(start,end), writer);
 		        }
 			}
@@ -81,7 +81,7 @@ public class PhraseSuggestion {
 		return (Success);
 	}
 	
-	public static boolean buildSentenceDatabase(String ... phrases) throws IOException
+	public boolean buildSentenceDatabase(String ... phrases) throws IOException
 	{
 		IndexWriterConfig iwc = new IndexWriterConfig(new StandardAnalyzer());
 		IndexWriter writer = new IndexWriter(phrasesDir, iwc);
@@ -93,9 +93,9 @@ public class PhraseSuggestion {
 	}
 	
 	// === Lucene Dictionary Suggester ===
-    static SpellChecker m_phraseRecommender=null;
+    SpellChecker m_phraseRecommender=null;
 	
-	public static boolean buildDictionaryPhrases() throws IOException
+	public boolean buildDictionaryPhrases() throws IOException
 	{
 		if (m_phraseRecommender!=null) {
 			m_phraseRecommender=null;
@@ -109,7 +109,7 @@ public class PhraseSuggestion {
 		return (true);
 	}
 	
-	private static void indexDictionaryPhrases(Directory SourceDir, Directory spellDir) throws IOException
+	private void indexDictionaryPhrases(Directory SourceDir, Directory spellDir) throws IOException
 	{		
 		SpellChecker phraseRecommender = new SpellChecker(spellDir);
 
@@ -124,7 +124,7 @@ public class PhraseSuggestion {
 		reader.close();
 	}
 	
-	public static String getSuggestion(String query) throws IOException
+	public String getSuggestion(String query) throws IOException
 	{
 		if (m_phraseRecommender==null)
 		{
@@ -137,7 +137,7 @@ public class PhraseSuggestion {
 			return null;
 	}
 	
-	public static String[] getSuggestions(String query, int MaxSuggestion) throws IOException
+	public String[] getSuggestions(String query, int MaxSuggestion) throws IOException
 	{
 		if (m_phraseRecommender==null)
 		{
@@ -151,9 +151,9 @@ public class PhraseSuggestion {
 	}
 	
 	// === Fuzzy Suggester ===
-	private static FuzzySuggester m_aFizzySuggestor=null; 
+	private FuzzySuggester m_aFizzySuggestor=null; 
 	
-	public static boolean buildFizzyPhrases() throws IOException
+	public boolean buildFizzyPhrases() throws IOException
 	{
 		if (m_aFizzySuggestor!=null) {
 			m_aFizzySuggestor=null;
@@ -165,7 +165,7 @@ public class PhraseSuggestion {
 		return (true);
 	}
 	
-	private static FuzzySuggester indexFuzzyPhrases(Directory SourceDir, Directory spellDir) throws IOException 
+	private FuzzySuggester indexFuzzyPhrases(Directory SourceDir, Directory spellDir) throws IOException 
 	{
 		StandardAnalyzer autosuggestAnalyzer = new StandardAnalyzer();
 		FuzzySuggester suggestor = new FuzzySuggester(spellDir,"tmp",autosuggestAnalyzer);
@@ -180,7 +180,7 @@ public class PhraseSuggestion {
 		return (suggestor);
 	}
 	
-	public static String[] getFuzzySuggestions(String query, int num) throws IOException
+	public String[] getFuzzySuggestions(String query, int num) throws IOException
 	{
 		if (m_aFizzySuggestor==null)
 		{
@@ -206,9 +206,9 @@ public class PhraseSuggestion {
 	}
 
 	// === AnalyzingInfix  Suggester ===
-	private static AnalyzingInfixSuggester m_AnalyzingInfixSuggester = null;
+	private AnalyzingInfixSuggester m_AnalyzingInfixSuggester = null;
 	
-	public static boolean buildAnalyzingInfixPhrases() throws IOException
+	public boolean buildAnalyzingInfixPhrases() throws IOException
 	{
 		if (m_AnalyzingInfixSuggester!=null) {
 			m_AnalyzingInfixSuggester=null;
@@ -220,7 +220,7 @@ public class PhraseSuggestion {
 		return (true);
 	}
 	
-	private static AnalyzingInfixSuggester indexAnalyzingInfixSuggesterPhrases(Directory SourceDir, Directory spellDir) throws IOException 
+	private AnalyzingInfixSuggester indexAnalyzingInfixSuggesterPhrases(Directory SourceDir, Directory spellDir) throws IOException 
 	{
 		StandardAnalyzer autosuggestAnalyzer = new StandardAnalyzer();
 		AnalyzingInfixSuggester suggestor = new AnalyzingInfixSuggester(spellDir,autosuggestAnalyzer);
@@ -235,7 +235,7 @@ public class PhraseSuggestion {
 		return (suggestor);
 	}
 	
-	public static String[] getAnalyzingInfixSuggestions(String query, int num) throws IOException
+	public String[] getAnalyzingInfixSuggestions(String query, int num) throws IOException
 	{
 		if (m_AnalyzingInfixSuggester==null)
 		{
@@ -261,7 +261,7 @@ public class PhraseSuggestion {
 	}
 	
 	// === Utility Functions ===
-	private static void addRecommendation(String phrase, IndexWriter writer)
+	private void addRecommendation(String phrase, IndexWriter writer)
 			throws CorruptIndexException, IOException {
 		Document doc = new Document();
 
@@ -273,7 +273,7 @@ public class PhraseSuggestion {
 		writer.addDocument(doc);
 	}
 	
-	public static void outputSuggestions(String ... SuggestionList) {
+	static public void outputSuggestions(String ... SuggestionList) {
 		if (SuggestionList!=null && SuggestionList.length>0) {
 			if (SuggestionList.length==1) {
 				System.out.println("Found 1 Suggestion");
@@ -291,7 +291,7 @@ public class PhraseSuggestion {
 	}
 	
 	// === Test Function ===
-	public static void main(String[] args) throws IOException {
+	static public void main(String[] args) throws IOException {
 		
 		String TestData[] = { "What have the Romans ever done for us?",
 				"This parrot is no more.",
@@ -304,31 +304,32 @@ public class PhraseSuggestion {
 				"Strange ladies lying in pools distributing swords is no basis for government",
 				"Nobody expects the Spanish Inquisition" };
 		
-		buildSentenceDatabase(TestData);
+		PhraseSuggestion aInstance = new PhraseSuggestion();
+		aInstance.buildSentenceDatabase(TestData);
 		
 		//buildSentenceDatabase("E:\\Thirdparty\\TypeAheadProject\\TypeAhead\\docs\\Sentences.txt");
 		
 		System.out.println("==== Lucene Dictionary Suggestor ====");
-		buildDictionaryPhrases();
+		aInstance.buildDictionaryPhrases();
 		
-		outputSuggestions(getSuggestions("spam spam",5));
-		outputSuggestions(getSuggestions("A tiger",5));
-		outputSuggestions(getSuggestions("Romans  ever done for us",5));
+		outputSuggestions(aInstance.getSuggestions("spam spam",5));
+		outputSuggestions(aInstance.getSuggestions("A tiger",5));
+		outputSuggestions(aInstance.getSuggestions("Romans  ever done for us",5));
 	
 		System.out.println("==== Fuzzy Suggestor ===");
-		buildFizzyPhrases();
+		aInstance.buildFizzyPhrases();
 				
-		outputSuggestions(getFuzzySuggestions("spam",5));
-		outputSuggestions(getFuzzySuggestions("lovely",5));
-		outputSuggestions(getFuzzySuggestions("a tger",5));
-		outputSuggestions(getFuzzySuggestions("tiger",5));
+		outputSuggestions(aInstance.getFuzzySuggestions("spam",5));
+		outputSuggestions(aInstance.getFuzzySuggestions("lovely",5));
+		outputSuggestions(aInstance.getFuzzySuggestions("a tger",5));
+		outputSuggestions(aInstance.getFuzzySuggestions("tiger",5));
 		
 		System.out.println("==== AnalyzingInfix Suggestor ===");
-		buildAnalyzingInfixPhrases();
+		aInstance.buildAnalyzingInfixPhrases();
 		
-		outputSuggestions(getAnalyzingInfixSuggestions("spam",5));
-		outputSuggestions(getAnalyzingInfixSuggestions("lovely",5));
-		outputSuggestions(getAnalyzingInfixSuggestions("a tger",5));
-		outputSuggestions(getAnalyzingInfixSuggestions("a tiger",5));
+		outputSuggestions(aInstance.getAnalyzingInfixSuggestions("spam",5));
+		outputSuggestions(aInstance.getAnalyzingInfixSuggestions("lovely",5));
+		outputSuggestions(aInstance.getAnalyzingInfixSuggestions("a tger",5));
+		outputSuggestions(aInstance.getAnalyzingInfixSuggestions("a tiger",5));
 	}
 } 
