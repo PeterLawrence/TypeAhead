@@ -39,6 +39,7 @@ public class DocumentLookAhead implements LookAheadTextPane.TextLookAhead {
 			if (dictionarySentenaces.buildSentenceDatabase("dict/TypeAheadSentences.txt")) 
 			{
 				dictionarySentenaces.buildFizzyPhrases();
+				dictionarySentenaces.buildAnalyzingInfixPhrases();
 			}
 		} catch (IOException ioe) {
 			System.err.println("IOException occurred trying to read dictionary.");
@@ -68,6 +69,32 @@ public class DocumentLookAhead implements LookAheadTextPane.TextLookAhead {
 		}
 
 		// No match found - return null
+		return null;
+	}
+	
+	public String[] GetSuggestions(String sentenceKey) {
+		try {
+			String[] Suggestions = dictionarySentenaces.getFuzzySuggestions(sentenceKey,5);
+			
+			return (Suggestions);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+		}
+
+		// Nothing found
+		return null;
+	}
+	
+	public String[] GetAlternaticeSentence(String sentenceKey) {
+		try {
+			String[] Suggestions = dictionarySentenaces.getAnalyzingInfixSuggestions(sentenceKey,5);
+			
+			return (Suggestions);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+		}
+
+		// Nothing found
 		return null;
 	}
 

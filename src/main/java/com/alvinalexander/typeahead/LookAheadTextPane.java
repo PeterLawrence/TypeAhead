@@ -8,11 +8,10 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Insets;
 import java.awt.event.*;
-import java.text.BreakIterator;
-import java.util.Locale;
 
 import javax.swing.event.DocumentListener;
 import javax.swing.event.DocumentEvent;
+
 
 /**
  * @author Alvin Alexander, AlvinAlexander.com
@@ -24,6 +23,193 @@ import javax.swing.event.DocumentEvent;
  * 
  */
 public class LookAheadTextPane extends JTextPane {
+	
+	class CurrentSentenceString
+	{
+		public int m_StartPos;
+		public int m_EndPos;
+		public CurrentSentenceString()
+		{
+			m_StartPos=m_EndPos=0;
+		}
+		public boolean isNewLine(char a_char)
+		{
+			switch (a_char)
+			{
+			case 0:
+			case '\n':
+			case '.':
+				return (true);
+			}
+			return (false);
+		}
+		
+		public String getSentenceUnderCurser()
+		{
+			Document doc = getDocument();
+			if (doc != null) {
+				try {
+					// go back to previous whitespace
+					int docLength = doc.getLength();
+					String sentenceTxt = new String();
+					int caretPosition = getCaretPosition();
+					
+					// scan backward
+					int i;
+					String aChar;
+					char a_char;
+					if (caretPosition>0)
+					{
+						--caretPosition;
+						int LastNonSpace=caretPosition;
+						for (i=caretPosition;i>-1;--i)
+						{
+							aChar=doc.getText(i, 1);
+							a_char = aChar.charAt(0);
+							if (isNewLine(a_char))
+							{
+								break;
+							}
+							sentenceTxt= aChar + sentenceTxt;
+							m_StartPos=i;
+							if (a_char!=32) {
+								LastNonSpace=m_StartPos;
+							}
+						}
+						if (LastNonSpace>-1) {
+							int Diff=LastNonSpace-m_StartPos;
+							if (Diff>0) {
+								m_StartPos=LastNonSpace;
+								if (Diff<sentenceTxt.length()) {
+									sentenceTxt=sentenceTxt.substring(Diff);
+								}
+								else {
+									sentenceTxt="";
+								}
+							}
+						}
+					}
+					else {
+						m_StartPos=0;
+					}
+					// scan forward
+					for (i=caretPosition;i<docLength;++i)
+					{
+						aChar=doc.getText(i, 1);
+						a_char = aChar.charAt(0);
+						if (isNewLine(a_char))
+						{
+							break;
+						}
+						sentenceTxt= sentenceTxt + aChar;
+						m_EndPos=i;
+					}
+					if (sentenceTxt.length()>0)
+						return (sentenceTxt);
+				} catch (BadLocationException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			return null;
+		}
+	}
+	
+	CurrentSentenceString m_CurrentSentence=new CurrentSentenceString();
+
+	class PopUpMenu extends JPopupMenu {
+		private static final long serialVersionUID = 1L;
+		MouseEvent m_MouseEvent;
+		
+		ActionListener menuListenerReplaceText = new ActionListener() 
+    	{
+    	      public void actionPerformed(ActionEvent event)
+    	      {
+    	    	  int start = m_CurrentSentence.m_StartPos;
+    	    	  int end = m_CurrentSentence.m_EndPos+1;
+    	    	  StringBuilder strBuilder = new StringBuilder(getText());
+    	    	  strBuilder.replace(start, end, event.getActionCommand());
+    	    	  setText(strBuilder.toString());
+    	      }
+    	};
+    	
+    	ActionListener menuListenerAlternativeText = new ActionListener() 
+    	{
+    	      public void actionPerformed(ActionEvent event)
+    	      {
+    	    	  PopUpMenu menu = new PopUpMenu();
+    		        
+    		        String SentenceText = m_CurrentSentence.getSentenceUnderCurser();
+    		        if (SentenceText!=null && SentenceText.length()>1)
+    		        {
+    		        	JMenuItem item;
+    			        String[] suggestionsList = lookAhead.GetAlternaticeSentence(SentenceText);
+    			        if (suggestionsList!=null && suggestionsList.length>0) 
+    			        {
+    			        	for (int i = 0; i < suggestionsList.length; i++) {
+    							String aResult= suggestionsList[i];
+    							if (aResult!=null)
+    							{
+    								item = new JMenuItem(aResult);
+    								menu.add(item);
+    								item.addActionListener(menu.menuListenerReplaceText);
+    							}
+    						}
+    			        }
+    			        else {
+    			        	 menu.add("No Suggestions found");
+    			        }
+    			        menu.show(m_MouseEvent.getComponent(),m_MouseEvent.getX(),m_MouseEvent.getY());
+    		        }
+    	      }
+    	};
+    	
+	    public PopUpMenu(){
+	    }
+	}
+	
+	class PopClickListener extends MouseAdapter {
+	    public void mousePressed(MouseEvent e){
+	        if (e.isPopupTrigger())
+	            doPop(e);
+	    }
+
+	    public void mouseReleased(MouseEvent e){
+	        if (e.isPopupTrigger())
+	            doPop(e);
+	    }
+
+	    private void doPop(MouseEvent e){
+	        PopUpMenu menu = new PopUpMenu();
+	        menu.m_MouseEvent=e;
+	        
+	        String SentenceText = m_CurrentSentence.getSentenceUnderCurser();
+	        if (SentenceText!=null && SentenceText.length()>1)
+	        {
+	        	JMenuItem item;
+		        String[] suggestionsList = lookAhead.GetSuggestions(SentenceText);
+		        if (suggestionsList!=null && suggestionsList.length>0) 
+		        {
+		        	for (int i = 0; i < suggestionsList.length; i++) {
+						String aResult= suggestionsList[i];
+						if (aResult!=null)
+						{
+							item = new JMenuItem(aResult);
+							menu.add(item);
+							item.addActionListener(menu.menuListenerReplaceText);
+						}
+					}
+		        }
+		        else {
+		        	 menu.add("No Suggestions found");
+		        }
+		        item = new JMenuItem("Alternative Sentences?");
+				menu.add(item);
+				item.addActionListener(menu.menuListenerAlternativeText);
+		        menu.show(e.getComponent(), e.getX(), e.getY());
+	        }
+	    }
+	}
 	
 	private static final long serialVersionUID = 1L;
 	int endOfCurrentSuggestion = 0;
@@ -63,6 +249,7 @@ public class LookAheadTextPane extends JTextPane {
             @Override
             public void keyReleased(KeyEvent e) {}
         });
+        this.addMouseListener(new PopClickListener());
 	}
 
 	public LookAheadTextPane(TextLookAhead lookAhead) {
@@ -93,7 +280,7 @@ public class LookAheadTextPane extends JTextPane {
 	public TextLookAhead getLookAhead() {
 		return lookAhead;
 	}
-
+	
 	public void replaceSelection(String content) {
 		super.replaceSelection(content);
 
@@ -153,38 +340,6 @@ public class LookAheadTextPane extends JTextPane {
 				LastSentenceBreak=Math.max(LastSentenceBreak,lastFullStop);
 				
 				String newContent = null;
-				// find last sentence
-				String LastSentence=null;
-		        BreakIterator boundary = BreakIterator.getSentenceInstance(Locale.UK);
-		        boundary.setText(recentDocText);
-		        int start = boundary.first();
-		        int wordStart=0;
-		        int end=0;
-		        for (end = boundary.next();end != BreakIterator.DONE; start = end, end = boundary.next())
-		        {
-		        	//System.out.println(aLineOfText.substring(start,end));
-		        	LastSentence=recentDocText.substring(start,end);
-		        	wordStart=start;
-		        }
-		        if (LastSentence!=null && LastSentence.length()>3 && wordStart>LastSentenceBreak)
-		        {
-		        	// recentDocText is up to current cursor position
-		        	newContent = lookAhead.doLookAheadSentence(LastSentence);
-		        	if (newContent!=null) {
-		        		int removedTxt = recentDocText.length() - wordStart;
-		        		if (removedTxt>0 && removedTxt<newContent.length()) {
-			        		doc.remove(wordStart, removedTxt);
-			        		doc.insertString(wordStart, newContent, null);
-	
-			        		int lengthOfAddedContent = newContent.length() - removedTxt;
-							// highlight the added text
-							endOfCurrentSuggestion = caretPosition + lengthOfAddedContent;
-							setCaretPosition(caretPosition + lengthOfAddedContent);
-							moveCaretPosition(caretPosition);
-							return;
-		        		}
-		        	}
-		        }
 				
 				if (lastWhitespaceLoc > 0 && doc.getLength() > (charsToLookBack - 1)) {
 					// get caret position
@@ -239,6 +394,8 @@ public class LookAheadTextPane extends JTextPane {
 	public interface TextLookAhead {
 		public String doLookAhead(String key);
 		public String doLookAheadSentence(String sentenceKey);
+		public String[] GetSuggestions(String sentenceKey);
+		public String[] GetAlternaticeSentence(String sentenceKey);
 		public void setText(String text);
 		public void addWord(String word);
 	}
