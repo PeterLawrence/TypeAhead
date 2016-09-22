@@ -2,9 +2,6 @@ package com.alvinalexander.typeahead;
 
 import javax.swing.*;
 
-import java.awt.BorderLayout;
-import java.awt.Font;
-
 public class TypeAhead {
 
 	public static void main(String[] args) {

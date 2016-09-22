@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.StringTokenizer;
 import java.util.TreeSet;
 
-import javax.print.DocFlavor.URL;
-
 import com.lucene.PhraseSuggestion.PhraseSuggestion;
 
 /**
