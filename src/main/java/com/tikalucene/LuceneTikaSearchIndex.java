@@ -48,7 +48,7 @@ import org.xml.sax.SAXException;
 
 
 /**
- * Sample searching an using lucent 6 and tika
+ * Sample document searching using lucent 6 and tika
  * @author  Peter Lawrence
  */
 public class LuceneTikaSearchIndex {	

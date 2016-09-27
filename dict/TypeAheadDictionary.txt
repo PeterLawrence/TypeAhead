@@ -49,11 +49,6 @@ delete
 window
 Packt.util.
 record
-Ext.Msg.WARNING
-Ext.Msg.show
-Ext.form.Basic
-Ext.form.Panel
-Ext.create
 response
 sencha
 extjs
@@ -110,7 +105,6 @@ Alaska
 Texas
 Illinois
 Sencha
-ExtJS
 Touch
 current
 form
